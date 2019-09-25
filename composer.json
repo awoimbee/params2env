@@ -1,0 +1,15 @@
+{
+    "name": "meero-com/params2env",
+    "require": {
+        "ext-json": "*",
+        "symfony/console": "^4.3",
+        "symfony/yaml": "^4.3",
+        "symfony/dotenv":  "4.3.*"
+    },
+     "config": {
+        "bin-dir": "scripts"
+    },
+    "autoload": {
+        "psr-4": {"Commands\\": "src/"}
+   }
+}
