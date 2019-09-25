@@ -34,36 +34,42 @@ class ParamsToEnvCommand extends Command
         $exclusions = $input->getOption('exclusions');
 
         $yamlData = Yaml::parseFile($yamlFile);
-        $data = '';
         if (!isset($yamlData['parameters'])) {
             fwrite(STDERR, "Could not find `parameters`.\n");
             return;
         }
+
+        $outputData = '';
+        // Sort the params for better output
+        ksort($yamlData['parameters']);
         foreach ($yamlData['parameters'] as $keyYml => $param) {
             $keyEnv = str_replace('.', '_', strtoupper($keyYml));
+            // Check if key should be excluded
             if (
                 !in_array($keyYml, $exclusions)
                 && !in_array($keyEnv, $exclusions)
             ) {
                 if (is_array($param)) {
-                $param = json_encode($param);
+                    $param = json_encode($param);
                 }
                 if (preg_match('/%[^%]+%/', $param) !== 0) {
-                    fwrite(
-                        STDERR,
-                        "/!\\ A key that may have been transformed by this script has been detected in: " . $param . "\n\n"
-                    );
+                    fwrite(STDERR, "/!\\ A Yaml key has been detected in: " . $param . "\n\n");
                 }
-
-                $data .= sprintf("%s=%s\n", $keyEnv, $param);
+                // If keys are not similar
+                if (isset($keyYmlLast) && strncmp($keyYml, $keyYmlLast, 3) !== 0) {
+                    $outputData .= "\n";
+                }
+                $outputData .= sprintf("%s=%s\n", $keyEnv, $param);
+                $keyYmlLast = $keyYml;
             }
         }
+        // Save
         $fileHandle = fopen($envFile, 'w');
         if ($fileHandle === FALSE) {
             fwrite(STDERR, "Could not find open output file.\n");
             return;
         }
-        fputs($fileHandle, $data);
+        fputs($fileHandle, $outputData    );
         fclose($fileHandle);
     }
 }
