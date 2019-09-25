@@ -41,11 +41,20 @@ class ParamsToEnvCommand extends Command
         }
         foreach ($yamlData['parameters'] as $keyYml => $param) {
             $keyEnv = str_replace('.', '_', strtoupper($keyYml));
-            if (!in_array($keyYml, $exclusions)
-                && !in_array($keyEnv, $exclusions)) {
+            if (
+                !in_array($keyYml, $exclusions)
+                && !in_array($keyEnv, $exclusions)
+            ) {
                 if (is_array($param)) {
-                    $param = json_encode($param);
+                $param = json_encode($param);
                 }
+                if (preg_match('/%[^%]+%/', $param) !== 0) {
+                    fwrite(
+                        STDERR,
+                        "/!\\ A key that may have been transformed by this script has been detected in: " . $param . "\n\n"
+                    );
+                }
+
                 $data .= sprintf("%s=%s\n", $keyEnv, $param);
             }
         }
