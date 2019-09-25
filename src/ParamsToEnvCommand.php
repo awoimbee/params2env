@@ -35,6 +35,10 @@ class ParamsToEnvCommand extends Command
 
         $yamlData = Yaml::parseFile($yamlFile);
         $data = '';
+        if (!isset($yamlData['parameters'])) {
+            fwrite(STDERR, "Could not find `parameters`.\n");
+            return;
+        }
         foreach ($yamlData['parameters'] as $keyYml => $param) {
             $keyEnv = str_replace('.', '_', strtoupper($keyYml));
             if (!in_array($keyYml, $exclusions)
@@ -46,6 +50,10 @@ class ParamsToEnvCommand extends Command
             }
         }
         $fileHandle = fopen($envFile, 'w');
+        if ($fileHandle === FALSE) {
+            fwrite(STDERR, "Could not find open output file.\n");
+            return;
+        }
         fputs($fileHandle, $data);
         fclose($fileHandle);
     }
