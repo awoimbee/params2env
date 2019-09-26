@@ -6,8 +6,10 @@ require __DIR__ . '/..'  . '/vendor/autoload.php'; // i know thats not good
 use Symfony\Component\Console\Application;
 use Commands\ParamsToEnvCommand;
 use Commands\PrintEnvCommand;
+use Commands\AnnotToYamlCommand;
 
 $application = new Application();
 $application->add(new ParamsToEnvCommand());
 $application->add(new PrintEnvCommand());
+$application->add(new AnnotToYamlCommand());
 $application->run();
