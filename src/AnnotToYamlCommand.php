@@ -44,22 +44,44 @@ class AnnotToYamlCommand extends Command
 
     private function extractAnnot(string $filePath)
     {
-        // $annotation = preg_grep(
-        //     '/\/[*]+$\s[^\/]*?@Route\(.*?\)$.*?\*\//s',
-        //     array($filePath)
-        // );
-        echo file_get_contents($filePath) . "\n";
+        $fileContents = file_get_contents($filePath);
 
-        $annotation = preg_grep(
-            '/\/[*]+$\s[^\/]*?@Route\(.*?\)$.*?\*\//s',
-            array(file_get_contents($filePath))
+        // PCRE crashes because the default recursion limit is WAY too high (100 000)
+        //   https://stackoverflow.com/questions/7620910/regexp-in-preg-match-function-returning-browser-error#answer-7627962
+        ini_set("pcre.recursion_limit", "524");
+
+        // Capture from '@Route' to '*/'
+        preg_match_all(
+            '/@Route(\s|.)*?(\*\/)/',
+            $fileContents,
+            $routeMatches,
+            PREG_OFFSET_CAPTURE
         );
+        // Discard capture groups and wathever
+        $routeMatches = $routeMatches[0];
+        if ($routeMatches !== array())
+            printf(
+                "\e[0;36m%s\n%s\e[0m\n",
+                str_repeat("=", strlen($filePath)),
+                $filePath);
+        foreach($routeMatches as $routeMatch) {
+            $capture = substr($fileContents, $routeMatch[1], strlen($routeMatch[0]));
+            // Capture url, name, methods, requirements, default from symfony 4 route
+            preg_match(
+                '/@Route\(([\s*]*)("(?<url>(.)*?)")?,?([\s*]*)((name="(?<name>(.)*?)"|methods={(?<methods>((.|\s))*?)}|requirements={(?<requirements>((.|\s))*?)}|defaults={(?<defaults>((.|\s))*?)}),?([\s*]*))*/',
+                $capture,
+                $routeParams
+            );
 
-        if ($annotation !== []) {
-            print_r($annotation);
-            print_r("\n\n");
+            printf(
+                "Route:\n%s\n\nurl: %s\nname: %s\nmethods: %s\n%s\n",
+                $capture,
+                $routeParams['url'],
+                $routeParams['name'],
+                $routeParams['methods'],
+                "-------------------------------------------\n"
+            );
         }
-
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -71,6 +93,5 @@ class AnnotToYamlCommand extends Command
         foreach($this->files as $f) {
             $this->extractAnnot($f);
         }
-        // print_r($this->files);
     }
 }
