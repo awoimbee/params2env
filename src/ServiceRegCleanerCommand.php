@@ -30,21 +30,30 @@ class ServiceRegCleanerCommand extends Command
     {
         $yamlFile =   $input->getArgument('input');
         $outFile =    $input->getOption('output');
-        $outYamlText = "To put back in the original .yml:\n\n"
+        $outYamlText = "==================== For YAML =================\n"
+            . "(" . $yamlFile . ")\n"
             . "services:\n"
             . "  _defaults:\n"
             . "    public: false\n"
             . "    autoconfigure: true\n"
             . "    autowire: true\n"
         ;
-        $outDeprecText = "To put in ./app/config/deprecated.yml\n\n";
-        $outTestText = "To put in ./src/Meero/ShootBundle/Controller/User/HomepageController.php:indexAction";
+        $outDeprecText =
+            "\n==================== For DEPREC =================\n"
+            . "(./app/config/deprecated.yml)\n"
+            . "#  " . $yamlFile . "\n";
+
+        $outTestText =
+            "\n==================== For TESTING =================\n"
+            . "(./src/Meero/ShootBundle/Controller/User/HomepageController.php:indexAction)\n";
 
         $yamlData = Yaml::parseFile($yamlFile);
         if (!isset($yamlData['services'])) {
-            fwrite(STDERR, "Could not find `parameters`.\n");
+            fwrite(STDERR, "Could not find `services`.\n");
             return;
         }
+
+        ksort($yamlData['services']);
 
         unset($yamlData['services']['_defaults']);
         foreach($yamlData['services'] as $sName => $sOpts) {
@@ -62,17 +71,26 @@ class ServiceRegCleanerCommand extends Command
             }
 
             $args = null;
-            foreach ($sOpts['arguments'] as $key => $a) {
-                // $outYamlText .= $key . "\n\n";
-                if (strncmp($a, '%', 1) === 0 || strncmp($key, '$', 1) === 0) {
-                    if ($args == null) {
-                        $args = "    arguments: THEY ARE FUCKED, CHECKED\n";
+            if (isset($sOpts['arguments'])) {
+                foreach ($sOpts['arguments'] as $key => $a) {
+
+                    if (strncmp($a, '%', 1) === 0 || strncmp($key, '$', 1) === 0 || strncmp($a, '@', 1) !== 0) {
+                        if ($args == null) {
+                            $args = "    arguments:\n";
+                        }
+                        if (strncmp($key, '$', 1) === 0) {
+                            $args .= '      ' . $key . ': ' . $a . "\n";
+                        } else if (strncmp($a, '%', 1) === 0 || strncmp($a, '@', 1) !== 0) {
+                            $args .= '      ' . $a . "\n";
+                        }
                     }
-                    if (strncmp($a, '%', 1) === 0)
-                        $args .= '    ' . $a . "\n";
-                    else if (strncmp($key, '$', 1) === 0)
-                        $args .=  '      ' . $key . ': ' . $a . "\n";
                 }
+            }
+            if (isset($sOpts['tags'])) {
+                $outYamlText .= "\n\n";
+                $tags = json_encode($sOpts['tags']);
+                $outYamlText .= "    detected tags:\n      - " . $tags . "\n";
+
             }
             if ($args != null) {
                 $outYamlText .= "\n" . $args;
@@ -89,11 +107,8 @@ class ServiceRegCleanerCommand extends Command
             fwrite(STDERR, "Could not find open output file.\n");
             return;
         }
-        fputs($fileHandle, "====================\nFor YAML\n=================\n");
         fputs($fileHandle, $outYamlText);
-        fputs($fileHandle, "\n====================\nFor DEPREC\n=================\n");
         fputs($fileHandle, $outDeprecText);
-        fputs($fileHandle, "\n====================\nFor TESTING\n=================\n");
         fputs($fileHandle, $outTestText);
         fclose($fileHandle);
     }
