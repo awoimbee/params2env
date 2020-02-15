@@ -38,16 +38,27 @@ class ServiceRegCleanerCommand extends Command
             . "    autoconfigure: true\n"
             . "    autowire: true\n"
         ;
+        // $outYamlArr = [
+        //     'services' => [
+        //         '_defaults' => [
+        //             'public' => false,
+        //             'autoconfigure' => true,
+        //             'autowire' => true
+        //         ]
+        //     ]
+        // ];
+
+        // printf("%s\n", YAML::dump($outYamlArr, 999999999));
+
         $outDeprecText =
             "\n==================== For DEPREC =================\n"
-            . "(./app/config/deprecated.yml)\n"
             . "#  " . $yamlFile . "\n";
 
         $outTestText =
             "\n==================== For TESTING =================\n"
-            . "(./src/Meero/ShootBundle/Controller/User/HomepageController.php:indexAction)\n";
+            . "dump(\n\tarray(\n";
 
-        $yamlData = Yaml::parseFile($yamlFile);
+        $yamlData = Yaml::parseFile($yamlFile, Yaml::PARSE_CUSTOM_TAGS);
         if (!isset($yamlData['services'])) {
             fwrite(STDERR, "Could not find `services`.\n");
             return;
@@ -57,10 +68,14 @@ class ServiceRegCleanerCommand extends Command
 
         unset($yamlData['services']['_defaults']);
         foreach($yamlData['services'] as $sName => $sOpts) {
-            $outTestText .= sprintf("dump(\$this->get('%s'));\n", $sName);
-            if (!isset($sOpts['class'])) { // no ointed thing stuff thing // strncmp($sName, "Meero", 5)
+            // Add test case
+            $outTestText .= sprintf("\t\t\$this->get('%s'),\n", $sName);
+
+            // Service is already fully qualified (no alias)
+            if (!isset($sOpts['class'])) {
                 $outYamlText .= sprintf("  %s:", $sName);
             }
+            // Aliased
             else {
                 $outYamlText .= '  ' . $sOpts['class'] . ':';
                 $outDeprecText .= sprintf(
@@ -72,7 +87,10 @@ class ServiceRegCleanerCommand extends Command
 
             $args = null;
             if (isset($sOpts['arguments'])) {
+
                 foreach ($sOpts['arguments'] as $key => $a) {
+
+                    if (!is_string($a)) {printf("PANIC\n"); var_dump($a); echo "\n"; continue; }
 
                     if (strncmp($a, '%', 1) === 0 || strncmp($key, '$', 1) === 0 || strncmp($a, '@', 1) !== 0) {
                         if ($args == null) {
@@ -97,9 +115,8 @@ class ServiceRegCleanerCommand extends Command
             } else {
                 $outYamlText .= " ~\n";
             }
-
-
         }
+        $outTestText .= "\t)\n);\n";
 
         // Save
         $fileHandle = fopen($outFile, 'w');
